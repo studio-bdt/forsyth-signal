@@ -31,7 +31,7 @@ If you are running this project, you will need rust installed. To open the proje
 ```cargo run --bin forsyth-signal```
 
 ### TESTING
-To test mock events/details screen when the backend is being blocked by network restrictions, run this in console
+To test mock events/details screen when the backend is being blocked by network restrictions, paste and run this in the DevTools console
 ```
 (async () => {
   const futureDate = days =>
