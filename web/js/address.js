@@ -5,7 +5,8 @@ import {
 
 import {
     addAddressMarker,
-    flyTo
+    flyTo,
+    isMapReady
 } from './map.js?v=group-switch-selection';
 
 let addressMarker = null;
@@ -78,16 +79,21 @@ export function initializeAddressSearch({input, button, results, events, onEvent
 
             localStorage.setItem('forsyth-signal-address', JSON.stringify(savedAddress));
 
-            if (addressMarker) {
-                addressMarker.remove();
-            }
-
-            addressMarker = addAddressMarker(savedAddress.latitude, savedAddress.longitude);
-
             const nearby = findNearbyEvents(savedAddress, addressEvents);
 
-            if (nearby.length > 0) {
-                flyTo(savedAddress.latitude, savedAddress.longitude, 14);
+            if (isMapReady()) {
+                if (addressMarker) {
+                    addressMarker.remove();
+                }
+
+                addressMarker = addAddressMarker(
+                    savedAddress.latitude,
+                    savedAddress.longitude
+                );
+
+                if (nearby.length > 0) {
+                    flyTo(savedAddress.latitude, savedAddress.longitude, 14);
+                }
             }
 
             renderImpact(results, nearby);
