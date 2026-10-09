@@ -1,8 +1,8 @@
+use crate::models::Event;
 use reqwest::Client;
 use serde_json::{Map, Value};
-use crate::models::Event;
 
-pub async fn load_events(client: &Client, url: &str, category: &str, title_field: &str, description_fields: &[&str], status_fields: &[&str], date_fields: &[&str], location_fields: &[&str], source_name: &str, default_title: &str,) -> Result<Vec<Event>, String> {
+pub async fn load_events(client: &Client, url: &str, category: &str, title_field: &str, description_fields: &[&str], status_fields: &[&str], date_fields: &[&str], location_fields: &[&str], source_name: &str, default_title: &str) -> Result<Vec<Event>, String> {
     let response = client.get(url).query(&[("where", "1=1"), ("outFields", "*"), ("returnGeometry", "true"), ("outSR", "4326"), ("f", "geojson"),]).send().await.map_err(|error| format!("Failed to contact {source_name}: {error}"))?;
 
     if !response.status().is_success() {
@@ -32,7 +32,7 @@ pub async fn load_events(client: &Client, url: &str, category: &str, title_field
         let location = first_value(properties, location_fields).unwrap_or_else(|| "Forsyth County, Georgia".to_string());
         let (latitude, longitude) = point_coordinates(geometry.as_ref());
 
-        let source_url = first_value(properties, &["Link", "LINK", "Website", "WEBSITE", "URL",]);
+        let source_url = first_value(properties, &["Link", "LINK", "Website", "WEBSITE", "URL"]);
 
         events.push(Event {
             id: format!(
@@ -60,7 +60,7 @@ pub async fn load_events(client: &Client, url: &str, category: &str, title_field
     Ok(events)
 }
 
-pub async fn load_geojson(client: &Client, url: &str, source_name: &str,) -> Result<Value, String> {
+pub async fn load_geojson(client: &Client, url: &str, source_name: &str) -> Result<Value, String> {
     let response = client.get(url).query(&[("where", "1=1"), ("outFields", "*"), ("returnGeometry", "true"), ("outSR", "4326"), ("f", "geojson"),]).send().await.map_err(|error| format!("Failed to contact {source_name}: {error}"))?;
 
     if !response.status().is_success() {
@@ -85,7 +85,6 @@ fn first_value(properties: &Map<String, Value>, fields: &[&str]) -> Option<Strin
                 }
             } else if value.is_number() {
                 return Some(value.to_string());
-
             }
         }
     }
@@ -99,21 +98,79 @@ fn point_coordinates(geometry: Option<&Value>) -> (Option<f64>, Option<f64>) {
         None => return (None, None),
     };
 
-    if geometry.get("type").and_then(Value::as_str) != Some("Point") {
-        return (None, None);
-    }
-
     let coordinates = match geometry.get("coordinates").and_then(Value::as_array) {
         Some(coordinates) => coordinates,
         None => return (None, None),
     };
 
-    if coordinates.len() < 2 {
-        return (None, None);
+    match geometry.get("type").and_then(Value::as_str) {
+        Some("Point") => coordinate_pair(coordinates).map(|(longitude, latitude)| (Some(latitude), Some(longitude))).unwrap_or((None, None)),
+        Some("Polygon") => polygon_center(coordinates).map(|(longitude, latitude)| (Some(latitude), Some(longitude))).unwrap_or((None, None)),
+        Some("MultiPolygon") => multi_polygon_center(coordinates).map(|(longitude, latitude)| (Some(latitude), Some(longitude))).unwrap_or((None, None)),
+        _ => (None, None)
+    }
+}
+
+fn coordinate_pair(value: &[Value]) -> Option<(f64, f64)> {
+    let longitude = value.first()?.as_f64()?;
+    let latitude = value.get(1)?.as_f64()?;
+    Some((longitude, latitude))
+}
+
+fn polygon_center(coordinates: &[Value]) -> Option<(f64, f64)> {
+    let outer_ring = coordinates.first()?.as_array()?;
+    ring_centroid(outer_ring).map(|(longitude, latitude, _)| (longitude, latitude))
+}
+
+fn multi_polygon_center(coordinates: &[Value]) -> Option<(f64, f64)> {
+    let mut weighted_longitude = 0.0;
+    let mut weighted_latitude = 0.0;
+    let mut total_area = 0.0;
+
+    for polygon in coordinates {
+        let Some(outer_ring) = polygon.as_array().and_then(|rings| rings.first()).and_then(Value::as_array)
+        else {
+            continue;
+        };
+        let Some((longitude, latitude, area)) = ring_centroid(outer_ring) else {
+            continue;
+        };
+
+        weighted_longitude += longitude * area;
+        weighted_latitude += latitude * area;
+        total_area += area;
     }
 
-    let longitude = coordinates[0].as_f64();
-    let latitude = coordinates[1].as_f64();
+    (total_area > f64::EPSILON).then_some((weighted_longitude / total_area, weighted_latitude / total_area))
+}
 
-    (latitude, longitude)
+fn ring_centroid(ring: &[Value]) -> Option<(f64, f64, f64)> {
+    let points: Vec<(f64, f64)> = ring.iter().filter_map(|value| {value.as_array().and_then(|coordinates| coordinate_pair(coordinates))}).collect();
+
+    if points.len() < 3 {
+        return None;
+    }
+
+    let mut twice_area = 0.0;
+    let mut longitude_sum = 0.0;
+    let mut latitude_sum = 0.0;
+
+    for index in 0..points.len() {
+        let (longitude, latitude) = points[index];
+        let (next_longitude, next_latitude) = points[(index + 1) % points.len()];
+        let cross_product = longitude * next_latitude - next_longitude * latitude;
+        twice_area += cross_product;
+        longitude_sum += (longitude + next_longitude) * cross_product;
+        latitude_sum += (latitude + next_latitude) * cross_product;
+    }
+
+    if twice_area.abs() <= f64::EPSILON {
+        return None;
+    }
+
+    Some((
+        longitude_sum / (3.0 * twice_area),
+        latitude_sum / (3.0 * twice_area),
+        twice_area.abs() / 2.0,
+    ))
 }
