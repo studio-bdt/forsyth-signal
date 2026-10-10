@@ -47,14 +47,13 @@ pub async fn load_events() -> Result<Vec<Event>, (axum::http::StatusCode, String
     let client = Client::new();
     let insight_urls = std::array::from_fn::<_, 5, _>(|index| format!("{INSIGHT_URL}/{index}/query"));
 
-    let (mut zoning, mut planning_hearings, mut permits, mut zoning_applications, mut participation_signs, mut hearing_signs, mut schools) = tokio::try_join!(
+    let (mut zoning, mut planning_hearings, mut permits, mut zoning_applications, mut participation_signs, mut hearing_signs) = tokio::try_join!(
         arcgis::load_events(&client, ZONING_URL, "development", "ZANUMBER", &["COMMENTS", "PROCESS"], &["ZASTATUS"], &[], &["LOCATION", "ADDRESS"], "Forsyth County GIS", "Zoning Application"),
         arcgis::load_events(&client, &insight_urls[0], "development", "ProjectName", &["PlanType", "PlanWorkClass"], &["PlanStatus", "SubmittalStatus"], &["CompletionDate", "ApplicationDate", "LastChangedDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Planning Hearing"),
         arcgis::load_events(&client, &insight_urls[1], "development", "ProjectName", &["PlanType", "PlanWorkClass"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate", "CompletionDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "New Permit"),
         arcgis::load_events(&client, &insight_urls[2], "development", "ProjectName", &["PlanType", "PlanWorkClass", "COMMENTS"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate", "CompletionDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Zoning Application"),
         arcgis::load_events(&client, &insight_urls[3], "public-notice", "ProjectName", &["PlanType", "PlanWorkClass"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Public Participation Sign"),
         arcgis::load_events(&client, &insight_urls[4], "public-notice", "ProjectName", &["PlanType", "PlanWorkClass"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Hearing Sign"),
-        arcgis::load_events(&client, SCHOOLS_URL, "schools", "SCH_NAME", &["TYPE", "GRDRANGE"], &["STATE"], &["YEAR_OPEN"], &["ADDRESS", "CITY", "ZIP"], "Forsyth County Schools GIS", "School"),
     )
     .map_err(bad_gateway)?;
 
@@ -67,7 +66,6 @@ pub async fn load_events() -> Result<Vec<Event>, (axum::http::StatusCode, String
     events.append(&mut hearing_signs);
 
     events.extend(meetings::load_meetings());
-    events.append(&mut schools);
 
     Ok(events)
 }
