@@ -141,6 +141,9 @@ export function addEventMarkers(events, onEventSelect) {
 
     const eventsByLocation = new Map();
     for (const event of events) {
+        if (event.state === 'past') {
+            continue;
+        }
         const isArea = event.geometry?.type === 'Polygon' || event.geometry?.type === 'MultiPolygon';
         if (isArea) {
             continue;
