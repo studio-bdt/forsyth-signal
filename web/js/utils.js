@@ -2,6 +2,25 @@ export function escapeHtml(value) {
     return String(value ?? '').replaceAll('&', '&amp;').replaceAll('<', '&lt;').replaceAll('>', '&gt;').replaceAll('"', '&quot;').replaceAll("'", '&#039;');
 }
 
+export function formatEventDate(value) {
+    const rawDate = String(value ?? '').trim();
+    if (!/^\d{10,13}$/.test(rawDate)) {
+        return rawDate;
+    }
+
+    const timestamp = Number(rawDate);
+    const milliseconds = rawDate.length === 10 ? timestamp * 1000 : timestamp;
+    const date = new Date(milliseconds);
+    if (!Number.isFinite(milliseconds) || Number.isNaN(date.getTime())) {
+        return rawDate;
+    }
+
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
 export function getEventState(event) {
     if (event.state) {
         return event.state;

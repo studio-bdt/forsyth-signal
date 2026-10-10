@@ -1,7 +1,8 @@
 import {
     escapeHtml,
     getEventState,
-    getCategoryName
+    getCategoryName,
+    formatEventDate
 } from './utils.js';
 
 let allEvents = [];
@@ -27,11 +28,12 @@ export function setEvents(events) {
         const occurrence = idOccurrences.get(rawId) || 0;
         idOccurrences.set(rawId, occurrence + 1);
 
-        return {
+        const normalizedEvent = {
             ...event,
             id: idCounts.get(rawId) > 1 ? `${rawId}::${occurrence}` : rawId,
-            state: getEventState(event)
+            date: formatEventDate(event.date)
         };
+        return {...normalizedEvent, state: getEventState(normalizedEvent)};
     });
     searchableEvents = allEvents.map(event => [
         event.title,
