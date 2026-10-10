@@ -141,6 +141,11 @@ export function addEventMarkers(events, onEventSelect) {
 
     const eventsByLocation = new Map();
     for (const event of events) {
+        const isArea = event.geometry?.type === 'Polygon' || event.geometry?.type === 'MultiPolygon';
+        if (isArea) {
+            continue;
+        }
+
         const latitude = Number(event.latitude);
         const longitude = Number(event.longitude);
         if (event.latitude === null || event.longitude === null ||
