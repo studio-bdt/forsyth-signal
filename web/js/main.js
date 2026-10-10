@@ -84,23 +84,35 @@ function showEvent(event, source = 'list', mapLocation = null) {
     }
 
     let calendarUrl = '';
-    const start = new Date(event.date);
+    const dateOnly = String(event.date ?? '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
 
-    if (event.state === 'upcoming' && event.date && !Number.isNaN(start.getTime())) {
-        const end = new Date(start.getTime() + 60 * 60 * 1000);
-        const toGoogleDate = date => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
-
+    if (event.state === 'upcoming' && dateOnly) {
+        const [, year, month, day] = dateOnly;
         const calendarUrlObject = new URL('https://calendar.google.com/calendar/render');
-
         calendarUrlObject.search = new URLSearchParams({
             action: 'TEMPLATE',
             text: event.title,
-            dates: `${toGoogleDate(start)}/${toGoogleDate(end)}`,
+            dates: `${year}${month}${day}/${nextCalendarDay(year, month, day)}`,
             location,
             details: event.description ?? '',
         }).toString();
 
         calendarUrl = calendarUrlObject.href;
+    } else {
+        const start = new Date(event.date);
+        if (event.state === 'upcoming' && event.date && !Number.isNaN(start.getTime())) {
+            const end = new Date(start.getTime() + 60 * 60 * 1000);
+            const toGoogleDate = date => date.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}Z$/, 'Z');
+            const calendarUrlObject = new URL('https://calendar.google.com/calendar/render');
+            calendarUrlObject.search = new URLSearchParams({
+                action: 'TEMPLATE',
+                text: event.title,
+                dates: `${toGoogleDate(start)}/${toGoogleDate(end)}`,
+                location,
+                details: event.description ?? '',
+            }).toString();
+            calendarUrl = calendarUrlObject.href;
+        }
     }
 
     detailsContainer.innerHTML = `
@@ -306,6 +318,11 @@ function escapeHtml(value) {
 
 function escapeAttribute(value) {
     return String(value ?? '').replaceAll('&', '&amp;').replaceAll('"', '&quot;').replaceAll('<', '&lt;').replaceAll('>', '&gt;');
+}
+
+function nextCalendarDay(year, month, day) {
+    const next = new Date(Date.UTC(Number(year), Number(month) - 1, Number(day) + 1));
+    return `${next.getUTCFullYear()}${String(next.getUTCMonth() + 1).padStart(2, '0')}${String(next.getUTCDate()).padStart(2, '0')}`;
 }
 
 function syncMapEvents() {
