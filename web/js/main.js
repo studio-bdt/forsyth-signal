@@ -38,19 +38,94 @@ const addressSubmit = document.getElementById('address-submit');
 const addressResults = document.getElementById('address-results');
 
 let allEvents = [];
+let allSchools = null;
+let schoolsLoadError = false;
+let showingSchools = false;
 let addressSearchInitialized = false;
 let mapEventsRendered = false;
 const EVENTS_CACHE_NAME = 'forsyth-signal-events-v1';
 const EVENTS_CACHE_URL = '/api/events';
 
 function render() {
-    renderEvents(eventsContainer, eventCount, showEvent);
+    if (showingSchools) {
+        renderSchools();
+    } else {
+        renderEvents(eventsContainer, eventCount, showEvent);
+    }
+}
+
+function renderSchools() {
+    if (allSchools === null) {
+        eventCount.textContent = 'Loading schools…';
+        eventsContainer.innerHTML = `<div class="empty">${schoolsLoadError ? 'Schools could not be loaded.' : 'Loading schools…'}</div>`;
+        return;
+    }
+
+    eventCount.textContent = `${allSchools.length} school${allSchools.length === 1 ? '' : 's'}`;
+    eventsContainer.replaceChildren();
+
+    if (allSchools.length === 0) {
+        eventsContainer.innerHTML = '<div class="empty">No schools found.</div>';
+        return;
+    }
+
+    for (const school of allSchools) {
+        const item = document.createElement('article');
+        item.className = 'event';
+        item.setAttribute('role', 'button');
+        item.tabIndex = 0;
+        item.innerHTML = `
+            <div class="event-category">School</div>
+            <div class="event-title">${escapeHtml(school.title)}</div>
+            <div class="event-location">${escapeHtml(school.location)}</div>
+        `;
+        item.addEventListener('click', () => showSchool(school));
+        item.addEventListener('keydown', event => {
+            if (event.key === 'Enter' || event.key === ' ') {
+                event.preventDefault();
+                showSchool(school);
+            }
+        });
+        eventsContainer.appendChild(item);
+    }
+}
+
+function showSchool(school) {
+    const latitude = Number(school.latitude);
+    const longitude = Number(school.longitude);
+    if (isMapReady() && Number.isFinite(latitude) && Number.isFinite(longitude)) {
+        flyTo(latitude, longitude);
+    }
+
+    detailsContainer.innerHTML = `
+        <div class='details-category'>School</div>
+        <h2>${escapeHtml(school.title)}</h2>
+        ${school.status ? `<div class='details-status'>${escapeHtml(school.status)}</div>` : ''}
+        ${school.description ? `<p>${escapeHtml(school.description)}</p>` : ''}
+        <div class='details-section'>
+            <div class='details-label'>LOCATION</div>
+            <div>${escapeHtml(school.location)}</div>
+        </div>
+        ${/^\d{4}$/.test(String(school.date ?? '')) ? `<div class='details-section'><div class='details-label'>YEAR OPENED</div><div>${escapeHtml(school.date)}</div></div>` : ''}
+        ${school.source_url ? `<div class='details-section'><a class='details-source-link' href='${escapeAttribute(school.source_url)}' target='_blank' rel='noopener noreferrer'>Official Source →</a></div>` : ''}
+    `;
+
+    if (window.matchMedia('(max-width: 900px)').matches) {
+        setMobilePanel('details-panel', false);
+    }
 }
 
 function showEvent(event, source = 'list', mapLocation = null) {
     document.getElementById('event-group-panel').hidden = true;
     selectEvent(event.id);
     const isMapSelection = source.startsWith('map-');
+
+    if (isMapSelection) {
+        showingSchools = false;
+        document.querySelector('#events-header h2').textContent = 'Events';
+        document.getElementById('event-filters').hidden = false;
+        searchInput.parentElement.hidden = false;
+    }
 
     if (isMapSelection) {
         const state = event.state;
@@ -420,11 +495,42 @@ async function loadEvents() {
     }
 }
 
+async function loadSchools() {
+    const response = await fetch('/api/schools', {cache: 'no-cache'});
+    if (!response.ok) {
+        throw new Error(`Schools API returned: ${response.status}`);
+    }
+    const schools = await response.json();
+    if (!Array.isArray(schools)) {
+        throw new Error('Schools API returned an invalid response');
+    }
+    allSchools = schools;
+    schoolsLoadError = false;
+    render();
+}
+
+loadSchools().catch(error => {
+    console.error('Failed to load schools:', error);
+    schoolsLoadError = true;
+    render();
+});
+
 document.querySelectorAll('.event-tab').forEach(button => {
     button.addEventListener('click', () => {
         document.querySelectorAll('.event-tab').forEach(other => other.classList.remove('is-active'));
         button.classList.add('is-active');
-        setState(button.dataset.state);
+        showingSchools = button.dataset.state === 'schools';
+        document.querySelector('#events-header h2').textContent = showingSchools ? 'Schools' : 'Events';
+        document.getElementById('event-filters').hidden = showingSchools;
+        document.getElementById('search').parentElement.hidden = showingSchools;
+        document.getElementById('events-back-to-top').hidden = true;
+        if (showingSchools) {
+            selectEvent(null);
+            setSelectedEvent(null);
+            detailsContainer.innerHTML = '<p>Select a school</p>';
+        } else {
+            setState(button.dataset.state);
+        }
         render();
     });
 });
@@ -591,7 +697,8 @@ const eventsPanel = document.getElementById('events-panel');
 const backToTopButton = document.getElementById('events-back-to-top');
 
 eventsPanel.addEventListener('scroll', () => {
-    if (!window.matchMedia('(max-width: 900px)').matches) {
+    if (showingSchools || !window.matchMedia('(max-width: 900px)').matches) {
+        backToTopButton.hidden = true;
         return;
     }
 

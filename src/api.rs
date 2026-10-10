@@ -43,6 +43,24 @@ pub async fn get_events() -> Result<Json<Vec<Event>>, (axum::http::StatusCode, S
     Ok(Json(events))
 }
 
+pub async fn get_schools() -> Result<Json<Vec<Event>>, (axum::http::StatusCode, String)> {
+    let client = Client::new();
+    let mut schools = arcgis::load_events(
+        &client,
+        SCHOOLS_URL,
+        "schools",
+        "SCH_NAME",
+        &["TYPE", "GRDRANGE"],
+        &["STATE"],
+        &["YEAR_OPEN"],
+        &["ADDRESS", "CITY", "ZIP"],
+        "Forsyth County Schools GIS",
+        "School",
+    ).await.map_err(bad_gateway)?;
+    schools.sort_by(|first, second| first.title.cmp(&second.title));
+    Ok(Json(schools))
+}
+
 pub async fn load_events() -> Result<Vec<Event>, (axum::http::StatusCode, String)> {
     let client = Client::new();
     let insight_urls = std::array::from_fn::<_, 5, _>(|index| format!("{INSIGHT_URL}/{index}/query"));
@@ -54,8 +72,7 @@ pub async fn load_events() -> Result<Vec<Event>, (axum::http::StatusCode, String
         arcgis::load_events(&client, &insight_urls[2], "development", "ProjectName", &["PlanType", "PlanWorkClass", "COMMENTS"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate", "CompletionDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Zoning Application"),
         arcgis::load_events(&client, &insight_urls[3], "public-notice", "ProjectName", &["PlanType", "PlanWorkClass"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Public Participation Sign"),
         arcgis::load_events(&client, &insight_urls[4], "public-notice", "ProjectName", &["PlanType", "PlanWorkClass"], &["PlanStatus", "SubmittalStatus"], &["ApplicationDate", "LastChangedDate"], &["Address", "LOCATION", "ProjectName"], "Forsyth County Planning & Community Development", "Hearing Sign"),
-    )
-    .map_err(bad_gateway)?;
+    ).map_err(bad_gateway)?;
 
     let mut events = load_local_events()?;
     events.append(&mut zoning);
