@@ -45,6 +45,41 @@ let addressSearchInitialized = false;
 let mapEventsRendered = false;
 const EVENTS_CACHE_NAME = 'forsyth-signal-events-v1';
 const EVENTS_CACHE_URL = '/api/events';
+const LAST_FETCHED_KEY = 'forsyth-signal-last-fetched';
+
+function formatLastFetched() {
+    const stored = localStorage.getItem(LAST_FETCHED_KEY);
+
+    if (!stored) {
+        return '';
+    }
+
+    const date = new Date(stored);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    return date.toLocaleString('en-US', {
+        month: 'short',
+        day: 'numeric',
+        hour: 'numeric',
+        minute: '2-digit'
+    });
+}
+
+function updateLastFetchedLabel() {
+    const label = document.getElementById('last-fetched');
+
+    if (!label) {
+        return;
+    }
+
+    const formatted = formatLastFetched();
+    label.textContent = formatted
+        ? `Last refreshed ${formatted}`
+        : '';
+}
 
 function render() {
     if (showingSchools) {
@@ -473,7 +508,14 @@ async function loadEvents() {
         if (!Array.isArray(events)) {
             throw new Error('Events API returned an invalid response');
         }
-        applyEvents(events);
+        localStorage.setItem(
+    LAST_FETCHED_KEY,
+    new Date().toISOString()
+);
+
+applyEvents(events);
+updateLastFetchedLabel();
+      
         if ('caches' in window) {
             try {
                 const cache = await caches.open(EVENTS_CACHE_NAME);
@@ -563,8 +605,8 @@ initializeMap(showMapEvent).catch(error => {
     message.textContent = 'The map could not be loaded. Events are still available in the list.';
     document.getElementById('map-container').appendChild(message);
 });
+updateLastFetchedLabel();
 loadEvents();
-
 const mapContainer = document.getElementById('map-container');
 const mobilePanelButtons = document.querySelectorAll('#mobile-panel-controls [data-panel]');
 
