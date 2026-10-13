@@ -204,6 +204,12 @@ html, body {
     font-size: 0.75rem;
     color: rgba(32, 32, 32, 0.72);
 }
+.last-fetched {
+    padding: 0 16px 8px;
+    color: rgba(32, 32, 32, 0.56);
+    font-size: 0.7rem;
+    line-height: 1.2;
+}
 
 #events {
     height: 100%;
