@@ -1,6 +1,6 @@
 # Forsyth Signal
 
-Find the signal through the noise or smth idk (is this a tuff slogan??) no
+Track the plans, join the conversation, and shape the future of your neighborhood and community.
 
 This website was built for 2026 Congressional App Challenge.
 
@@ -15,15 +15,15 @@ The main purpose of Forsyth Signal is to encourage people to participate in civi
 ## For the developers
 Here's the basic outline of the project
 
- - api --- you don't need to touch it, probably
+ - api --- Contains the code for recieving data from dependency APIs.
 
- - data --- you don't need to touch it
+ - data --- Stored data is saved here during runtime.
 
- - src --- this is the rust backend
+ - src --- Contains the backend of the web application.
 
- - web --- this is the frontend
+ - web --- Contains the frontend of the application.
 
- - anything in the root --- please don't touch :)
+ - ROOT.* --- Files for building and development environment configurations.
 
 ### IMPORTANT!!!!!!!
 If you are running this project, you will need rust installed. To open the project on a local development server, run the following in the terminal:
