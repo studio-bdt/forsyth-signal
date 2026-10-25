@@ -1,8 +1,12 @@
 # Forsyth Signal
 
-Track the plans, join the conversation, and shape the future of your neighborhood and community.
+<div>
+  <img src="./forsyth-signal-thumbnail.png" alt="Forsyth Signal Thumbnail" width="240" height="320" align="right" />
+  <h3>Track the plans, join the conversation, and shape the future of your neighborhood and community.</h3>
+  <p><em>This website was built for the 2026 Congressional App Challenge.</em></p>
+</div>
+<br clear="right" />
 
-This website was built for 2026 Congressional App Challenge.
 
 ## Functions
 The main purpose of Forsyth Signal is to encourage people to participate in civics. It can be hard to find information about civic meetings, where development plans are happening, and where public hearing signs are. That's why we built this web app. 
